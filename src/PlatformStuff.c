@@ -115,6 +115,20 @@ static void applySwitchThreadHints(const char* name) {
     if (targetCore >= 0 && targetCore != preferredCore) {
         svcSetThreadCoreMask(CUR_THREAD_HANDLE, targetCore, (u32)affinityMask);
     }
+
+    // libnx/libounce pthreads all start at priority 0x3B, so a socket reader
+    // can wait behind any other busy worker on its core. The readers must drain
+    // the UDP receive buffer as soon as packets arrive, so they run above the
+    // other workers (the UI thread stays higher at 0x20). They block in recv()
+    // and use little CPU.
+    if (strncmp(name, "VideoRecv", 9) == 0 || strncmp(name, "AudioRecv", 9) == 0) {
+        svcSetThreadPriority(CUR_THREAD_HANDLE, 0x28);
+    }
+
+    s32 priority = -1;
+    svcGetThreadPriority(&priority, CUR_THREAD_HANDLE);
+    Limelog("Switch thread %s: core %d (process mask 0x%llx), priority 0x%x\n",
+            name, (int)targetCore, (unsigned long long)affinityMask, (int)priority);
 }
 #endif
 

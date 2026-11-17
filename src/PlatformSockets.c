@@ -358,6 +358,22 @@ SOCKET bindUdpSocket(int addressFamily, struct sockaddr_storage* localAddr, SOCK
     }
 #endif
 
+#if defined(__SWITCH__)
+    {
+        // Log the local port: on a lossy Switch 2 link, all audio once arrived on the
+        // video socket, which a shared or misreported local port would explain.
+        struct sockaddr_in bound;
+        SOCKADDR_LEN boundLen = sizeof(bound);
+        memset(&bound, 0, sizeof(bound));
+        if (getsockname(s, (struct sockaddr*)&bound, &boundLen) == 0) {
+            Limelog("UDP socket %d (qos %d) bound to local port %u\n", (int)s, socketQosType, ntohs(bound.sin_port));
+        }
+        else {
+            Limelog("UDP socket %d (qos %d) getsockname failed: %d\n", (int)s, socketQosType, LastSocketError());
+        }
+    }
+#endif
+
     // Enable QOS for the socket (best effort)
     if (socketQosType != SOCK_QOS_TYPE_BEST_EFFORT) {
         setSocketQos(s, socketQosType);
@@ -391,7 +407,7 @@ SOCKET bindUdpSocket(int addressFamily, struct sockaddr_storage* localAddr, SOCK
             }
         }
 
-#if defined(LC_DEBUG)
+#if defined(LC_DEBUG) || defined(__SWITCH__)
         if (err == 0) {
             Limelog("Selected receive buffer size: %d\n", bufferSize);
         }
