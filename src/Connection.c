@@ -179,8 +179,18 @@ static void ClInternalConnectionTerminated(int errorCode)
         LC_ASSERT(err == 0);
     }
 
+#if defined(__SWITCH__)
+    // libnx has no pthread_detach(), so a detached thread is never released
+    // and the leaked handle crashes the process when the app exits or is
+    // relaunched. Wait for the callback instead: on Switch the termination
+    // callback must return quickly and must not call LiStopConnection().
+    if (err == 0) {
+        PltJoinThread(&terminationCallbackThread);
+    }
+#else
     // Detach the thread since we never wait on it
     PltDetachThread(&terminationCallbackThread);
+#endif
 }
 
 static bool parseRtspPortNumberFromUrl(const char* rtspSessionUrl, uint16_t* port)
